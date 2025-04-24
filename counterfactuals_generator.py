@@ -1,5 +1,4 @@
 # counterfactuals_generator.py
-### NNED TO FIX SO PEOPLE CAN INPUT PRICE THEY WANT INSURANCE TO BE UNDER
 
 import pandas as pd
 import numpy as np
@@ -17,7 +16,7 @@ features = ['age', 'sex', 'bmi', 'children', 'smoker', 'region']
 cat_features = ['sex', 'smoker', 'region']
 num_features = ['age', 'bmi', 'children']
 
-def generate_counterfactuals_for_query(query_instance):
+def generate_counterfactuals_for_query(query_instance, max_cost=10000):
     # Load and prepare data
     df = pd.read_csv("insurance.csv")
     X = df[features]
@@ -69,7 +68,7 @@ def generate_counterfactuals_for_query(query_instance):
     dice_exp = explainer.generate_counterfactuals(
         query_df,
         total_CFs=10,
-        desired_range=[0, 10000],
+        desired_range=[0, max_cost],
         features_to_vary='all'
     )
 
@@ -97,7 +96,7 @@ def generate_counterfactuals_for_query(query_instance):
     recovered_num_df = pd.DataFrame(unscaled_num, columns=num_features)
 
     if 'children' in recovered_num_df.columns:
-        recovered_num_df['children'] = recovered_num_df['children'].round().astype(int)
+        recovered_num_df['children'] = recovered_num_df['children'].fillna(0).round().astype(int)
 
     readable_df = pd.concat([recovered_cat_df, recovered_num_df], axis=1)
     if 'charges' in cf_df.columns:

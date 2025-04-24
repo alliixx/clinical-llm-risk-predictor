@@ -1,0 +1,30 @@
+{
+    "Linear Regression": {
+        "rmse": 5796.28,
+        "r2": 0.7836
+    },
+    "Random Forest": {
+        "rmse": 4551.1,
+        "r2": 0.8666
+    },
+    "Gradient Boosting": {
+        "rmse": 4294.46,
+        "r2": 0.8812
+    },
+    "XGBoost": {
+        "rmse": 4236.27,
+        "r2": 0.8844
+    },
+    "CatBoost": {
+        "rmse": 4248.4,
+        "r2": 0.8837
+    },
+    "SVR": {
+        "rmse": 12112.94,
+        "r2": 0.0549
+    },
+    "KNN": {
+        "rmse": 6648.87,
+        "r2": 0.7152
+    }
+}
