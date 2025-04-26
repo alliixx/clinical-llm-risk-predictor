@@ -1,4 +1,4 @@
-# app.py (Starbucks Creative-style redesign, blue theme)
+# app2.py
 
 import streamlit as st
 import pandas as pd
@@ -7,6 +7,8 @@ import json
 from joblib import load
 from counterfactuals_generator import generate_counterfactuals_for_query
 import altair as alt
+
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
 
 # --- Page Config ---
 st.set_page_config(page_title="Insurance Charge Predictor", layout="wide",initial_sidebar_state="collapsed")
@@ -86,7 +88,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Tabs ---
-tabs = st.tabs(["🏠 Home", "📊 Insights", "🔮 Predictor", "📈 Model Analysis"])
+tabs = st.tabs(["🏠 Home", "📊 Insights", "🔮 Predictor", "📈 Model Analysis", "👤 About"])
 
 # --- Shared resources ---
 model_options = {
@@ -125,7 +127,6 @@ with tabs[0]:
     <p><strong>IMPORTANT:</strong> This tool is designed for informational purposes and should be used in consultation with healthcare financial advisors. Results represent statistical projections based on historical data.</p>
     </div>
     """, unsafe_allow_html=True)
-    st.image("https://png.pngtree.com/thumb_back/fh260/background/20201026/pngtree-futuristic-shape-abstract-background-chemistry-technology-concept-for-website-image_438818.jpg")
 
 # --- Insights Tab ---
 with tabs[1]:
@@ -154,6 +155,52 @@ with tabs[1]:
     st.line_chart(region_avg.rename(columns={'charges': 'Average Charges'}).set_index('region'))
 
 # --- Predictor Tab ---
+
+def explain_counterfactual(original_input: pd.DataFrame, counterfactuals: pd.DataFrame) -> str:
+    model_id = "mistralai/Mistral-7B-Instruct-v0.2"
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    model = AutoModelForCausalLM.from_pretrained(model_id)
+
+    original = original_input.to_dict(orient='records')[0]
+    changed_attributes = {}
+
+    for idx, cf in counterfactuals.iterrows():
+        for key in original.keys():
+            if key in cf:
+                orig_value = original[key]
+                cf_value = cf[key]
+                # Ignore tiny BMI changes
+                if isinstance(orig_value, float) and isinstance(cf_value, float):
+                    if abs(orig_value - cf_value) < 1.0:
+                        continue
+                if orig_value != cf_value:
+                    changed_attributes[key] = changed_attributes.get(key, 0) + 1
+
+    if not changed_attributes:
+        change_summary = "No significant attribute changes detected."
+    else:
+        change_summary = ", ".join([f"{k}" for k in changed_attributes.keys()])
+
+    prompt = f"""
+You are an expert at explaining healthcare insurance predictions.
+
+The original patient profile is:
+{original}
+
+The table shows alternative patient profiles that would lower insurance costs.
+
+The most common changes in the alternatives are: {change_summary}.
+
+Explain in plain English what the table shows about lowering insurance costs.
+Focus on what actions (like quitting smoking, lowering BMI) help, and summarize briefly.
+Keep your explanation under 80 words.
+"""
+
+    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
+    output = model.generate(input_ids, max_new_tokens=100)
+    explanation = tokenizer.decode(output[0], skip_special_tokens=True)
+    return explanation
+
 with tabs[2]:
     st.header("Predict Insurance Charge")
     model_choice = st.selectbox("Choose a model:", list(model_options.keys()))
@@ -196,6 +243,10 @@ with tabs[2]:
                 if not cf_df.empty:
                     st.markdown("Alternative patient profiles to lower the cost:")
                     st.dataframe(cf_df)
+                    #with st.spinner("💬 Generating explanation..."):
+                    #    explanation = explain_counterfactual(user_input, cf_df)
+                    #    st.markdown("**🧠 AI Explanation:**")
+                    #    st.markdown(explanation)
                 else:
                     st.warning("⚠️ No counterfactuals found under the given cost constraint.")
             except Exception as e:
@@ -256,3 +307,40 @@ with tabs[3]:
         st.info("This model explains a decent amount of variance but might miss some subtle patterns.")
     else:
         st.warning("This model struggles to explain variation in charges. Consider a better model or more features.")
+
+# --- About Tab ---
+with tabs[4]:
+    st.header("About")
+    st.markdown(""" 
+    ### <span style="color:#0d47a1;">Our Platform</span>
+    
+    The Insurance Charge Predictor is a **user-friendly web application** designed to help users estimate healthcare insurance costs based on demographic and lifestyle information. With a clean, modern interface and intuitive navigation, the app guides users through predicting insurance charges, exploring **AI-generated counterfactual profiles**, and analyzing model performance across different machine learning algorithms.
+    
+    Using fine-tuned models like **XGBoost and Linear Regression**, the website offers not only **accurate predictions** but also **interpretable insights**—such as how changes in inputs (e.g., quitting smoking or lowering BMI) could reduce costs. The app’s counterfactual generator provides personalized "what-if" scenarios, enhancing decision-making power for patients and consumers.
+    
+    The tool is fully functional in its current state and built for scalability via Streamlit, with backend support for additional models and datasets. It is well-documented and includes clear instructions and modular design for further development or deployment in clinical or financial settings.
+    
+    <div style="background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 20px;">
+    <strong>Why It Matters:</strong> 
+    <ul>
+        <li>📈 <strong>Impact:</strong> Empowers users to make cost-saving health decisions using predictive modeling.</li>
+        <li>🧠 <strong>AI Integration:</strong> Leverages advanced ML techniques with explainability.</li>
+        <li>🖥️ <strong>Design & Usability:</strong> Modern, responsive interface with smooth interaction.</li>
+        <li>📊 <strong>Insights:</strong> Visual analytics and model comparisons for deeper understanding.</li>
+        <li>🚀 <strong>Scalability:</strong> Easily extendable and deployable for wider use cases.</li>
+    </ul>
+    </div>
+                
+    ### <span style="color:#0d47a1;">Developers</span>
+    **Allison Xin:** Caltech UG2, Computer Science + Economics
+    
+    **Clara Yu:** Caltech UG2, Computation and Neural Systems
+    
+    ### <span style="color:#0d47a1;">Sources</span>
+    Kaggle Dataset: https://www.kaggle.com/datasets/teertha/ushealthinsurancedataset?resource=download
+    
+    Libraries/Packages: Sklearn, XGBoost, Catboost, Pandas, Numpy, Streamlit, Altair    
+                
+    
+    
+    """, unsafe_allow_html=True)
