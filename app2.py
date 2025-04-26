@@ -8,7 +8,9 @@ from joblib import load
 from counterfactuals_generator import generate_counterfactuals_for_query
 import altair as alt
 
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausalLM
+import google.generativeai as genai
+
+genai.configure(api_key="AIzaSyDS8OBWXBhUGpdNm5-BzvsCmJMTEzXXvc8")
 
 # --- Page Config ---
 st.set_page_config(page_title="Insurance Charge Predictor", layout="wide",initial_sidebar_state="collapsed")
@@ -156,50 +158,21 @@ with tabs[1]:
 
 # --- Predictor Tab ---
 
-def explain_counterfactual(original_input: pd.DataFrame, counterfactuals: pd.DataFrame) -> str:
-    model_id = "mistralai/Mistral-7B-Instruct-v0.2"
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForCausalLM.from_pretrained(model_id)
-
-    original = original_input.to_dict(orient='records')[0]
-    changed_attributes = {}
-
-    for idx, cf in counterfactuals.iterrows():
-        for key in original.keys():
-            if key in cf:
-                orig_value = original[key]
-                cf_value = cf[key]
-                # Ignore tiny BMI changes
-                if isinstance(orig_value, float) and isinstance(cf_value, float):
-                    if abs(orig_value - cf_value) < 1.0:
-                        continue
-                if orig_value != cf_value:
-                    changed_attributes[key] = changed_attributes.get(key, 0) + 1
-
-    if not changed_attributes:
-        change_summary = "No significant attribute changes detected."
-    else:
-        change_summary = ", ".join([f"{k}" for k in changed_attributes.keys()])
-
+def generate_counterfactual_explanation(original_profile, counterfactual_profiles):
     prompt = f"""
-You are an expert at explaining healthcare insurance predictions.
+You are an expert in healthcare insurance analysis.
 
 The original patient profile is:
-{original}
+{original_profile}
 
-The table shows alternative patient profiles that would lower insurance costs.
+The following alternative profiles could lead to reduced insurance costs:
+{counterfactual_profiles}
 
-The most common changes in the alternatives are: {change_summary}.
-
-Explain in plain English what the table shows about lowering insurance costs.
-Focus on what actions (like quitting smoking, lowering BMI) help, and summarize briefly.
-Keep your explanation under 80 words.
+Explain in simple terms what changes in the patient attributes contribute to lower insurance charges. Focus on actionable factors such as smoking status, BMI, and region.
 """
-
-    input_ids = tokenizer(prompt, return_tensors="pt").input_ids
-    output = model.generate(input_ids, max_new_tokens=100)
-    explanation = tokenizer.decode(output[0], skip_special_tokens=True)
-    return explanation
+    model = genai.GenerativeModel("gemini-2.5-pro-exp-03-25")
+    response = model.generate_content(prompt)
+    return response.text
 
 with tabs[2]:
     st.header("Predict Insurance Charge")
@@ -243,10 +216,13 @@ with tabs[2]:
                 if not cf_df.empty:
                     st.markdown("Alternative patient profiles to lower the cost:")
                     st.dataframe(cf_df)
-                    #with st.spinner("💬 Generating explanation..."):
-                    #    explanation = explain_counterfactual(user_input, cf_df)
-                    #    st.markdown("**🧠 AI Explanation:**")
-                    #    st.markdown(explanation)
+                    with st.spinner("Generating explanation with Gemini..."):
+                        try:
+                            explanation = generate_counterfactual_explanation(user_input, cf_df.to_dict(orient="records"))
+                            st.subheader("🧠 AI-Generated Explanation:")
+                            st.success(explanation)
+                        except Exception as e:
+                            st.error(f"❌ Error generating explanation: {e}")
                 else:
                     st.warning("⚠️ No counterfactuals found under the given cost constraint.")
             except Exception as e:
