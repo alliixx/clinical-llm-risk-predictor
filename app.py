@@ -34,7 +34,6 @@ st.markdown("""
             background-position: 0% 50%;
         }
     }
-
     .main-title {
         font-size: 36px;
         font-weight: 700;
