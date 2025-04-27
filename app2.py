@@ -11,15 +11,14 @@ import time
 from streamlit_lottie import st_lottie
 import json
 
-import google.generativeai as genai
 import openai
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
 
-load_dotenv("key.env")
-api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
+#load_dotenv("key.env")
+openai.api_key = os.environ["OPENAI_API_KEY"]
+client = OpenAI(api_key=openai.api_key)
 #genai.configure(api_key="AIzaSyDS8OBWXBhUGpdNm5-BzvsCmJMTEzXXvc8")
 
 st.set_page_config(
