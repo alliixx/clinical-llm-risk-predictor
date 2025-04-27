@@ -14,9 +14,13 @@ import json
 import google.generativeai as genai
 import openai
 from openai import OpenAI
+from dotenv import load_dotenv
+import os
 
-client = OpenAI(api_key="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")
-genai.configure(api_key="AIzaSyDS8OBWXBhUGpdNm5-BzvsCmJMTEzXXvc8")
+load_dotenv("key.env")
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key)
+#genai.configure(api_key="AIzaSyDS8OBWXBhUGpdNm5-BzvsCmJMTEzXXvc8")
 
 st.set_page_config(
     page_title="Insurance Charge Predictor",
